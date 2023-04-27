@@ -153,14 +153,14 @@ def make_flower(date, loc, size, color, id):
         objects.append(circle.ToNurbsCurve())
     for pline in plines:
         objects.append(pline.ToNurbsCurve())
-    flower = Curve.CreateBooleanUnion(objects)
+    flower = Curve.CreateBooleanUnion(objects)[0]
 
-    model.Objects.AddCurve(flower[0])
+    model.Objects.AddCurve(flower)
 
     # Saves the 3DM file after all geometric operations are completed
     model.Write(id + '.3dm')
     
-    return
+    return 
 
 def make_jpeg(filename):
     return
