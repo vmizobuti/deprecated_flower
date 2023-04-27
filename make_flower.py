@@ -9,7 +9,7 @@
 import math
 import rhino3dm as r3dm
 import compute_rhino3d.Util
-from compute_rhino3d import Curve, AreaMassProperties
+from compute_rhino3d import Curve, Intersection
 
 def PointPolar(radius, phi):
     """
@@ -30,6 +30,77 @@ def PointPolar(radius, phi):
 
     return point
 
+def Remap(value, old_domain, new_domain):
+    """
+    Remapeia um número de um domínio D1 para um domínio D2.
+    """
+    # Calcula o intervalo do domínio original
+    old_range = old_domain[1] - old_domain[0]
+
+    # Calcula o intervalo do novo domínio
+    new_range = new_domain[1] - new_domain[0]
+
+    # Remapeia os valores entre domínios
+    remapped_value = (((value - old_domain[0]) * new_range)/old_range) + \
+                     new_domain[0]
+
+    return remapped_value
+
+def GetTangentCurves(c1, c2):
+    """
+    Calcula as linhas tangentes a dois circulos, C1 e C2.
+    Retorna essas linhas como objetos rhino3dm.Line(p1, p2).
+    """
+    # Organiza a lista de círculos de acordo com o raio
+    c = sorted([c1, c2], key= lambda x:x.Radius)
+    
+    # Calcula o ponto médio entre o centro dos dois círculos
+    line = r3dm.Line(c[0].Center, c[1].Center)
+    mid = line.PointAt(0.5)
+    
+    # Cria o círculo de intersecção entre os dois círculos
+    mid_circle = r3dm.Circle(mid, (line.Length)/2)
+    
+    # Cria o círculo interno ao círculo maior, com raio R - r
+    inn_circle = r3dm.Circle(c[1].Center, (c[1].Radius - c[0].Radius))
+    
+    # Calcula os pontos de intersecção entre os círculos auxiliares
+    intersection = Intersection.CurveCurve(mid_circle.ToNurbsCurve(),
+                                           inn_circle.ToNurbsCurve(),
+                                           0.001, 0.001)
+    i1 = r3dm.Point3d(intersection[0]['PointA']['X'], 
+                      intersection[0]['PointA']['Y'], 0.0)
+    i2 = r3dm.Point3d(intersection[1]['PointA']['X'], 
+                      intersection[1]['PointA']['Y'], 0.0)
+    
+    # Calcula os vetores perpendiculares às curvas tangentes
+    length = i1.DistanceTo(c[1].Center)
+    v1 = r3dm.Vector3d(((i1.X - c[1].Center.X)/length) * c[1].Radius, 
+                       ((i1.Y - c[1].Center.Y)/length) * c[1].Radius, 0.0)
+    v2 = r3dm.Vector3d(((i2.X - c[1].Center.X)/length) * c[1].Radius, 
+                       ((i2.Y - c[1].Center.Y)/length) * c[1].Radius, 0.0)
+    v3 = r3dm.Vector3d(((i1.X - c[1].Center.X)/length) * c[0].Radius, 
+                       ((i1.Y - c[1].Center.Y)/length) * c[0].Radius, 0.0)
+    v4 = r3dm.Vector3d(((i2.X - c[1].Center.X)/length) * c[0].Radius, 
+                       ((i2.Y - c[1].Center.Y)/length) * c[0].Radius, 0.0)    
+
+    # Cria as transformações de movimento para cada ponto baseado nos vetores
+    t1 = r3dm.Transform.Translation(v1)
+    t2 = r3dm.Transform.Translation(v2)
+    t3 = r3dm.Transform.Translation(v3)
+    t4 = r3dm.Transform.Translation(v4)
+
+    # Movimenta os pontos centrais de acordo com as transformações criadas
+    p1 = c[1].Center.Transform(t1)
+    p2 = c[1].Center.Transform(t2)
+    p3 = c[0].Center.Transform(t3)
+    p4 = c[0].Center.Transform(t4)
+
+    # Cria um polígono fechado composto pelos quatro pontos tangentes
+    polygon = r3dm.Polyline([p1, p2, p4, p3, p1])
+
+    return polygon
+
 def make_flower(date, loc, size, color, id):
     """
     Cria o arquivo 3DM com a geometria necessária para a arte,
@@ -37,7 +108,6 @@ def make_flower(date, loc, size, color, id):
     Essa função retorna o nome do arquivo 3DM após a finalização
     de todas as operações.
     """
-
     # Inicializa a instância do servidor do Rhino.Compute
     compute_rhino3d.Util.url = "http://localhost:8081/"
 
@@ -55,36 +125,37 @@ def make_flower(date, loc, size, color, id):
     radius = (size/2) - margin
     arc = 360/8
 
-    # Calcula o valor de rotação para cada ponto da arte
-    r1 = ((arc/4) * date[0])
-    r2 = ((arc/10) * date[1]) + arc * 1
-    r3 = ((arc/3) * (date[2] + 1)) + arc *2
-    r4 = ((arc/10) * date[3]) + arc * 3
-    r5 = ((arc/10) * date[4]) + arc * 4
-    r6 = ((arc/10) * date[5]) + arc * 5
-    r7 = ((arc/10) * date[6]) + arc * 6
-    r8 = ((arc/10) * date[7]) + arc * 7
-    
-    # Cria os pontos da arte baseado nas suas coordenadas polares
-    p0 = r3dm.Point3d(0, 0, 0)
-    p1 = PointPolar(radius, r1)
-    p2 = PointPolar(radius, r2)
-    p3 = PointPolar(radius, r3)
-    p4 = PointPolar(radius, r4)
-    p5 = PointPolar(radius, r5)
-    p6 = PointPolar(radius, r6)
-    p7 = PointPolar(radius, r7)
-    p8 = PointPolar(radius, r8)
+    # Cria o círculo central da arte
+    origin = r3dm.Point3d(0, 0, 0)
+    center = r3dm.Circle(origin, size/50)
 
-    # Cria as linhas base da arte
-    model.Objects.AddLine(p0, p1)
-    model.Objects.AddLine(p0, p2)
-    model.Objects.AddLine(p0, p3)
-    model.Objects.AddLine(p0, p4)
-    model.Objects.AddLine(p0, p5)
-    model.Objects.AddLine(p0, p6)
-    model.Objects.AddLine(p0, p7)
-    model.Objects.AddLine(p0, p8)
+    # Calcula o valor de rotação para cada ponto da arte
+    angle = [
+        ((arc/4) * date[x]) if x == 0 else 
+        ((arc/3) * (date[x] + 1)) + arc * x if x == 2 else
+        ((arc/10) * date[x]) + arc * x for x in range(len(date))
+        ]
+
+    # Calcula o valor de distância do centro para cada ponto da arte
+    fac = [0.45, 0.85]
+    scale = [(Remap(date[x], [0, 9], fac) * radius) for x in range(len(date))]
+
+    # Cria os pontos da arte baseado nas suas coordenadas polares
+    points = [PointPolar(scale[x], angle[x]) for x in range(len(date))]
+
+    # Cria os círculos que compõem as pétalas da flor
+    circles = [r3dm.Circle(points[x], scale[x]/5) for x in range(len(points))]
+    plines = [GetTangentCurves(center, circles[x]) for x in range(len(circles))]
+
+    # Cria a união das curvas produzidas, fazendo a forma base da flor
+    objects = [center.ToNurbsCurve()]
+    for circle in circles:
+        objects.append(circle.ToNurbsCurve())
+    for pline in plines:
+        objects.append(pline.ToNurbsCurve())
+    flower = Curve.CreateBooleanUnion(objects)
+
+    model.Objects.AddCurve(flower[0])
 
     # Saves the 3DM file after all geometric operations are completed
     model.Write(id + '.3dm')
