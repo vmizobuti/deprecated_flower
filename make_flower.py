@@ -155,7 +155,47 @@ def make_flower(date, loc, size, color, id):
         objects.append(pline.ToNurbsCurve())
     flower = Curve.CreateBooleanUnion(objects)[0]
 
-    model.Objects.AddCurve(flower)
+    # Arredonda as pontas anguladas da geometria
+    flower = Curve.CreateFilletCornersCurve(flower, size/100, 0.001, 0.001)
+    flower = Curve.CreateFilletCornersCurve(flower, size/200, 0.001, 0.001)
+
+    # Recria a curva utilizando pontos de controle espaçados, para
+    # garantir uma transição suave
+    control_points = 150
+    flower = Curve.Rebuild(flower, control_points, 3, False) 
+
+    # Rotaciona a geometria de base de acordo com os valores de latitude e
+    # longitude obtidos
+    loc_angle = loc[0] + loc[1]
+    loc_rot = r3dm.Transform.Rotation(math.radians(loc_angle),
+                                      r3dm.Vector3d(0, 0, 1),
+                                      origin)
+    backfl = flower.Duplicate()
+    backfl.Transform(loc_rot)
+
+    # Move a geometria de base para cima para produzir as curvas intermediárias
+    move_up = r3dm.Transform.Translation(r3dm.Vector3d(0, 0, 5))
+    flower.Transform(move_up)
+
+    # Ajusta o ponto de início da curva inferior
+    point_on_flower = flower.PointAt(0.15)
+    param_on_backfl = Curve.ClosestPoint(backfl, point_on_flower)[1]
+    backfl.ChangeClosedCurveSeam(param_on_backfl)
+
+    # Cria as curvas intermediárias entre as duas bases
+    tween = Curve.CreateTweenCurves(flower, backfl, 120)
+    planes = [r3dm.Plane(crv.PointAtStart, r3dm.Vector3d(0, 0, 1)) for crv in tween]
+
+    regions = []
+    for i in range(len(tween)):
+        region = Curve.CreateBooleanRegions1([tween[i]], planes[i], True, 0.01)
+        regions.append(region)
+
+    for region in regions:
+        print(region.keys())
+
+    for curve in tween:
+        model.Objects.AddCurve(curve)
 
     # Saves the 3DM file after all geometric operations are completed
     model.Write(id + '.3dm')
