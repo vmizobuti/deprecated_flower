@@ -1,15 +1,18 @@
-# make_flower.py 
+# geometry.py 
 #
-# Cria a arte para o DressPOP utilizando as bibliotecas
-# da API do Rhinoceros, Rhino.Compute e Rhino.Inside, baseada
-# nos parâmetros fornecidos pelo usuário. Retorna um arquivo
-# em JPEG e um arquivo em 3DM.
+# Cria o modelo 3DM para o DressPOP utilizando as bibliotecas
+# da API do Rhinoceros e Rhino.Compute, baseada nos parâmetros 
+# fornecidos pelo usuário. Retorna um arquivo em 3DM.
 #
 
 import math
 import rhino3dm as r3dm
 import compute_rhino3d.Util
-from compute_rhino3d import Curve, Intersection
+from compute_rhino3d import Curve, GeometryBase, Intersection
+
+X_AXIS = r3dm.Vector3d(1, 0, 0)
+Y_AXIS = r3dm.Vector3d(0, 1, 0)
+Z_AXIS = r3dm.Vector3d(0, 0, 1)
 
 def PointPolar(radius, phi):
     """
@@ -101,7 +104,29 @@ def GetTangentCurves(c1, c2):
 
     return polygon
 
-def make_flower(date, loc, size, color, id):
+def GetCorners(points):
+    """
+    Calcula os extremos das coordenadas de uma lista de pontos.
+    Retorna dois pontos que representam os extremos.
+    """
+    # Cria as listas de valores de X, Y e Z dos pontos selecionados
+    x_val = []
+    y_val = []
+    z_val = []
+
+    # Aloca os valores das coordenadas em cada uma das listas
+    for point in points:
+        x_val.append(point.X)
+        y_val.append(point.Y)
+        z_val.append(point.Z)
+    
+    # Cria os pontos extremos baseado nas coordenadas da lista
+    min_point = r3dm.Point3d(min(x_val), min(y_val), min(z_val))
+    max_point = r3dm.Point3d(max(x_val), max(y_val), max(z_val))
+
+    return min_point, max_point
+
+def draw_geometry(date, loc, size, text, id):
     """
     Cria o arquivo 3DM com a geometria necessária para a arte,
     utilizando as funcões do rhino3dm e do Rhino.Compute.
@@ -119,8 +144,6 @@ def make_flower(date, loc, size, color, id):
     model.Layers.AddLayer("Frame", (255, 255, 255, 255))
 
     # Cria as dimensões básicas para a geração da arte
-    width = size
-    height = size
     margin = size * 0.05
     radius = (size/2) - margin
     arc = 360/8
@@ -159,51 +182,81 @@ def make_flower(date, loc, size, color, id):
     flower = Curve.CreateFilletCornersCurve(flower, size/100, 0.001, 0.001)
     flower = Curve.CreateFilletCornersCurve(flower, size/200, 0.001, 0.001)
 
-    # Recria a curva utilizando pontos de controle espaçados, para
-    # garantir uma transição suave
-    control_points = 150
-    flower = Curve.Rebuild(flower, control_points, 3, False) 
-
     # Rotaciona a geometria de base de acordo com os valores de latitude e
     # longitude obtidos
     loc_angle = loc[0] + loc[1]
-    loc_rot = r3dm.Transform.Rotation(math.radians(loc_angle),
-                                      r3dm.Vector3d(0, 0, 1),
-                                      origin)
+    loc_rot = r3dm.Transform.Rotation(math.radians(loc_angle), Z_AXIS, origin)
     backfl = flower.Duplicate()
     backfl.Transform(loc_rot)
 
     # Move a geometria de base para cima para produzir as curvas intermediárias
-    move_up = r3dm.Transform.Translation(r3dm.Vector3d(0, 0, 5))
+    move_up = r3dm.Transform.Translation(0, 0, 5)
     flower.Transform(move_up)
 
+    # Ajusta o ponto de início da curva superior
+    param_on_flower = 0.25
+    flower.ChangeClosedCurveSeam(param_on_flower)
+
     # Ajusta o ponto de início da curva inferior
-    point_on_flower = flower.PointAt(0.15)
+    point_on_flower = flower.PointAt(param_on_flower)
     param_on_backfl = Curve.ClosestPoint(backfl, point_on_flower)[1]
     backfl.ChangeClosedCurveSeam(param_on_backfl)
 
     # Cria as curvas intermediárias entre as duas bases
-    tween = Curve.CreateTweenCurves(flower, backfl, 120)
-    planes = [r3dm.Plane(crv.PointAtStart, r3dm.Vector3d(0, 0, 1)) for crv in tween]
+    tween = Curve.CreateTweenCurvesWithMatching(flower, backfl, 120)
 
-    regions = []
-    for i in range(len(tween)):
-        region = Curve.CreateBooleanRegions1([tween[i]], planes[i], True, 0.01)
-        regions.append(region)
-
-    for region in regions:
-        print(region.keys())
-
+    # Agrupa as geometrias para alinhamento com o quadro
+    model.Groups.Add(r3dm.Group())
+    model.Groups.FindIndex(0).Name = "Curvas"
+    att = r3dm.ObjectAttributes()
+    att.LayerIndex = 0
+    att.AddToGroup(0)
+    model.Objects.AddCurve(flower, att)
     for curve in tween:
-        model.Objects.AddCurve(curve)
+        model.Objects.AddCurve(curve, att)
+    model.Objects.AddCurve(backfl, att)
 
-    # Saves the 3DM file after all geometric operations are completed
-    model.Write(id + '.3dm')
+    # Calcula o ponto central do conjunto das curvas
+    box1 = GeometryBase.GetBoundingBox(flower, True)
+    box2 = GeometryBase.GetBoundingBox(backfl, True)
+    corners = GetCorners([box1.Min, box2.Min, box1.Max, box2.Max])
+    bbox = r3dm.BoundingBox(corners[0], corners[1])
+
+    # Cria o vetor de transformação das geometrias
+    vec = r3dm.Vector3d(-bbox.Center.X, -bbox.Center.Y, -2.5)
+    move_center = r3dm.Transform.Translation(vec)
+
+    # Move os objetos de acordo com o vetor de transformação
+    for object in model.Objects:
+        object.Geometry.Transform(move_center)
     
-    return 
+    # Cria o texto da arte de acordo com os textos recebidos
+    pln_txt = r3dm.Plane(r3dm.Point3d((-size/2) + margin/2, 
+                                      (-size/2) + margin/2, 0), Z_AXIS)
+    crv_txt = Curve.CreateTextOutlines(text, "Founders Grotesk Light", 0.4, 
+                                       0, True, pln_txt, 1.0, 0.01)
 
-def make_jpeg(filename):
-    return
+    # Cria a moldura da arte de acordo com as dimensões recebidas
+    f1 = r3dm.Point3d(size/2, size/2, 0.0)
+    f2 = r3dm.Point3d(-size/2, size/2, 0.0)
+    f3 = r3dm.Point3d(-size/2, -size/2, 0.0)
+    f4 = r3dm.Point3d(size/2, -size/2, 0.0)
+    frame = r3dm.Polyline([f1, f2, f3, f4, f1])
 
-def make_pdf(filename):
-    return
+    # Adiciona as curvas de texto ao modelo
+    tatt = r3dm.ObjectAttributes()
+    tatt.LayerIndex = 1
+    for curve in crv_txt:
+        model.Objects.AddCurve(curve, tatt)
+    
+    # Adiciona a curva do frame ao modelo
+    fatt = r3dm.ObjectAttributes()
+    fatt.LayerIndex = 2
+    model.Objects.AddCurve(frame.ToNurbsCurve(), fatt)
+
+    # Salva o arquivo 3DM após todas as operações serem finalizadas
+    filename = id + '.3dm'
+    model.Write(filename)
+    
+    return filename
+

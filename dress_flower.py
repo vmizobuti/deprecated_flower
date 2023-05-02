@@ -8,7 +8,8 @@ import json
 import sys
 
 from geolocation import coordinates
-from make_flower import make_flower, make_jpeg, make_pdf
+from geometry import draw_geometry
+from artist import paint, export_jpeg, export_pdf
 
 def load_input(file):
     """
@@ -40,6 +41,9 @@ def load_input(file):
     # Formata a localização como uma lista de coordenadas
     loc = [geo_loc.latitude, geo_loc.longitude]
 
+    # Formata o texto de data e localização para inclusão na arte
+    text = input['cidade'] + ", " + input['estado'] + " - " + input['data']
+
     # Avalia se o valor de entrada para o tamanho da arte está correto
     if type(input['dimensões']) != int:
         raise TypeError('Valor de entrada para a dimensão não é compatível.')
@@ -54,7 +58,7 @@ def load_input(file):
     else:
         color = input['cores']
 
-    return date, loc, size, color
+    return date, loc, size, text, color
 
 def main():
     
@@ -73,7 +77,12 @@ def main():
     art_id = str(sys.argv[1])
 
     # Gera a arte à partir dos valores de entrada
-    file3dm = make_flower(input[0], input[1], input[2], input[3], art_id)
+    file3dm = draw_geometry(input[0], input[1], input[2], input[3], art_id)
+    flower = paint(file3dm)
+
+    # Exporta a arte em JPEG e em PDF
+    jpeg = export_jpeg(flower)
+    pdf = export_pdf(flower)
 
 if __name__ == '__main__':
     main()
