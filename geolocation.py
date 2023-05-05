@@ -23,7 +23,7 @@ def coordinates(cidade, estado, pais):
     # Inicia a busca pela localização do endereço. Caso uma exceção
     # surja, retorna um valor vazio. Do contrario, retorna a localização.
     try:
-        location = geolocator.geocode(address)
+        location = geolocator.geocode(address, addressdetails=True)
     except:
         return None
 

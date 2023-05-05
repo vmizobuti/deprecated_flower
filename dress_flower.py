@@ -7,6 +7,7 @@
 import json
 import sys
 
+from os import getcwd, startfile
 from geolocation import coordinates
 from geometry import draw_geometry
 from artist import paint, export_jpeg, export_pdf
@@ -34,15 +35,20 @@ def load_input(file):
     date = [int(x) for x in date]
 
     # Avalia se os valores de entrada de localização estão corretos
-    geo_loc = coordinates(input['cidade'], input['estado'], input['pais'])
-    if geo_loc == None:
+    geodata = coordinates(input['cidade'], input['estado'], input['pais'])
+    if geodata == None:
         raise ValueError('Localização inserida não foi encontrada.')
     
     # Formata a localização como uma lista de coordenadas
-    loc = [geo_loc.latitude, geo_loc.longitude]
+    loc = [geodata.latitude, geodata.longitude]
 
     # Formata o texto de data e localização para inclusão na arte
-    text = input['cidade'] + ", " + input['estado'] + " - " + input['data']
+    try:
+        city = geodata.raw['address']['city']
+    except:
+        city = geodata.raw['address']['town']
+    state = geodata.raw['address']['state']
+    text = city + ", " + state + " - " + input['data']
 
     # Avalia se o valor de entrada para o tamanho da arte está correto
     if type(input['dimensões']) != int:
@@ -67,7 +73,7 @@ def main():
     if len(sys.argv) != 2:
         raise ValueError('Insira o ID da arte.')
     try:
-        filename = sys.argv[1] + '.json'
+        filename = getcwd() + "/JSON/" + sys.argv[1] + '.json'
         file = open(filename, encoding='utf-8')
     except:
         raise ValueError('Não foi encontrado arquivo JSON com o ID fornecido.')
@@ -78,11 +84,15 @@ def main():
 
     # Gera a arte à partir dos valores de entrada
     file3dm = draw_geometry(input[0], input[1], input[2], input[3], art_id)
-    flower = paint(file3dm)
+
+    colors = ['#9e005d', '#ed1e79', 122]
+    
+    flower = paint(file3dm, colors)
 
     # Exporta a arte em JPEG e em PDF
-    jpeg = export_jpeg(flower)
-    pdf = export_pdf(flower)
+    pdf = export_pdf(input[2], flower, art_id)
+    thumbnail = export_jpeg(input[2], 0, flower, art_id)
+    zoom = export_jpeg(input[2], 1, flower, art_id)
 
 if __name__ == '__main__':
     main()

@@ -9,6 +9,7 @@ import math
 import rhino3dm as r3dm
 import compute_rhino3d.Util
 from compute_rhino3d import Curve, GeometryBase, Intersection
+from os import getcwd
 
 X_AXIS = r3dm.Vector3d(1, 0, 0)
 Y_AXIS = r3dm.Vector3d(0, 1, 0)
@@ -139,9 +140,12 @@ def draw_geometry(date, loc, size, text, id):
     # Cria o arquivo 3DM em que serão feitas as operações
     model = r3dm.File3dm()
     model.Settings.ModelUnitSystem = r3dm.UnitSystem.Centimeters
-    model.Layers.AddLayer("Arte", (0, 0, 0, 255))
-    model.Layers.AddLayer("Texto", (190, 190, 190, 255))
-    model.Layers.AddLayer("Frame", (255, 255, 255, 255))
+    model.Layers.AddLayer('Arte', (0, 0, 0, 255))
+    model.Layers.AddLayer('Texto', (210, 210, 210, 255))
+    model.Layers.AddLayer('Frame', (255, 255, 255, 255))
+    model.Layers.AddLayer('Curvas', (255, 255, 255, 255))
+    model.Layers.FindName('Curvas', 0).PlotColor = (255, 255, 255, 40)
+    model.Layers.FindName('Curvas', 0).PlotWeight = size/400
 
     # Cria as dimensões básicas para a geração da arte
     margin = size * 0.05
@@ -194,7 +198,7 @@ def draw_geometry(date, loc, size, text, id):
     flower.Transform(move_up)
 
     # Ajusta o ponto de início da curva superior
-    param_on_flower = 0.25
+    param_on_flower = 0.15
     flower.ChangeClosedCurveSeam(param_on_flower)
 
     # Ajusta o ponto de início da curva inferior
@@ -207,7 +211,7 @@ def draw_geometry(date, loc, size, text, id):
 
     # Agrupa as geometrias para alinhamento com o quadro
     model.Groups.Add(r3dm.Group())
-    model.Groups.FindIndex(0).Name = "Curvas"
+    model.Groups.FindIndex(0).Name = 'Curvas'
     att = r3dm.ObjectAttributes()
     att.LayerIndex = 0
     att.AddToGroup(0)
@@ -215,6 +219,20 @@ def draw_geometry(date, loc, size, text, id):
     for curve in tween:
         model.Objects.AddCurve(curve, att)
     model.Objects.AddCurve(backfl, att)
+
+    # Projeta as curvas de sobreposição ao plano superior
+    top_plane = r3dm.Plane(r3dm.Point3d(0, 0, 10), Z_AXIS)
+    project = []
+    project.append(Curve.ProjectToPlane(flower, top_plane))
+    project.append(Curve.ProjectToPlane(backfl, top_plane))
+    for curve in tween:
+        project.append(Curve.ProjectToPlane(curve, top_plane))
+    
+    # Adiciona as curvas de sobreposição ao modelo
+    satt = r3dm.ObjectAttributes()
+    satt.LayerIndex = 3
+    for curve in project:
+        model.Objects.AddCurve(curve, satt)
 
     # Calcula o ponto central do conjunto das curvas
     box1 = GeometryBase.GetBoundingBox(flower, True)
@@ -233,7 +251,7 @@ def draw_geometry(date, loc, size, text, id):
     # Cria o texto da arte de acordo com os textos recebidos
     pln_txt = r3dm.Plane(r3dm.Point3d((-size/2) + margin/2, 
                                       (-size/2) + margin/2, 0), Z_AXIS)
-    crv_txt = Curve.CreateTextOutlines(text, "Founders Grotesk Light", 0.4, 
+    crv_txt = Curve.CreateTextOutlines(text, 'Founders Grotesk Light', 0.3, 
                                        0, True, pln_txt, 1.0, 0.01)
 
     # Cria a moldura da arte de acordo com as dimensões recebidas
@@ -255,8 +273,7 @@ def draw_geometry(date, loc, size, text, id):
     model.Objects.AddCurve(frame.ToNurbsCurve(), fatt)
 
     # Salva o arquivo 3DM após todas as operações serem finalizadas
-    filename = id + '.3dm'
+    filename = getcwd() + "\\3DM\\" + id + '.3dm'
     model.Write(filename)
     
     return filename
-
