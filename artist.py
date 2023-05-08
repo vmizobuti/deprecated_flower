@@ -24,8 +24,8 @@ def MakeGradient(colors, n):
     As cores de entrada são em HEX e a lista de saída é em RGB.
     """
     # Transforma as cores fornecidas em HEX para RGB decimal
-    c1 = np.array([int(colors[0][i:i+2], 16) for i in range(1, 6, 2)])/255
-    c2 = np.array([int(colors[1][i:i+2], 16) for i in range(1, 6, 2)])/255
+    c1 = np.array(colors[0])/255
+    c2 = np.array(colors[1])/255
     
     # Cria os valores intermediários entre as cores fornecidas
     stops = [x/(n-1) for x in range(n)]
@@ -49,7 +49,7 @@ def paint(filename, colors):
     doc = Rhino.RhinoDoc.Open(filename)[0]
 
     # Gera o gradiente de cores e separa as cores em seus respectivos canais    
-    gradient = MakeGradient([colors[0], colors[1]], colors[2])
+    gradient = MakeGradient([colors[0][1], colors[0][2]], colors[1] + 2)
 
     # Configura a layer ativa para a layer 'Arte'
     doc.Layers.SetCurrentLayerIndex(doc.Layers.FindName('Arte').Index, True)

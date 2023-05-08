@@ -9,6 +9,7 @@ import sys
 
 from os import getcwd, startfile
 from geolocation import coordinates
+from colors import color_table
 from geometry import draw_geometry
 from artist import paint, export_jpeg, export_pdf
 
@@ -59,7 +60,7 @@ def load_input(file):
     # Avalia se o valor de entrada para as cores está correto
     if type(input['cores']) != int:
         raise TypeError('Valor de entrada para as cores não é compatível.')
-    elif input['cores'] < 1 or input['cores'] > 10:
+    elif input['cores'] < 1 or input['cores'] > 12:
         raise ValueError('Não existe valor compatível com a cor selecionada.')
     else:
         color = input['cores']
@@ -82,11 +83,18 @@ def main():
     input = load_input(file)
     art_id = str(sys.argv[1])
 
-    # Gera a arte à partir dos valores de entrada
-    file3dm = draw_geometry(input[0], input[1], input[2], input[3], art_id)
+    # Define as cores para serem utilizadas na arte de acordo com
+    # a tabela de cores pré-definidas, bem como a quantidade de 
+    # passos entre as duas cores definidas
+    blend = 120
+    colors = [color_table(input[4]), blend]
 
-    colors = ['#9e005d', '#ed1e79', 122]
+    # Gera a arte à partir dos valores de entrada
+    file3dm = draw_geometry(input[0], input[1], input[2], 
+                            input[3], colors, art_id)
     
+    # Finaliza a arte com as cores fornecidas pelo usuário, dentro
+    # das opções pré-definidas
     flower = paint(file3dm, colors)
 
     # Exporta a arte em JPEG e em PDF

@@ -127,7 +127,7 @@ def GetCorners(points):
 
     return min_point, max_point
 
-def draw_geometry(date, loc, size, text, id):
+def draw_geometry(date, loc, size, text, color, id):
     """
     Cria o arquivo 3DM com a geometria necessária para a arte,
     utilizando as funcões do rhino3dm e do Rhino.Compute.
@@ -137,15 +137,22 @@ def draw_geometry(date, loc, size, text, id):
     # Inicializa a instância do servidor do Rhino.Compute
     compute_rhino3d.Util.url = "http://localhost:8081/"
 
+    # Adiciona as cores do valor Alpha ao conjunto de cores
+    color[0][0].append(122)
+
+    # Organiza as cores para referenciação nas layers
+    crv_color = tuple([val for val in color[0][0]])
+    blend = color[1]
+
     # Cria o arquivo 3DM em que serão feitas as operações
     model = r3dm.File3dm()
     model.Settings.ModelUnitSystem = r3dm.UnitSystem.Centimeters
     model.Layers.AddLayer('Arte', (0, 0, 0, 255))
     model.Layers.AddLayer('Texto', (210, 210, 210, 255))
     model.Layers.AddLayer('Frame', (255, 255, 255, 255))
-    model.Layers.AddLayer('Curvas', (255, 255, 255, 255))
-    model.Layers.FindName('Curvas', 0).PlotColor = (255, 255, 255, 40)
-    model.Layers.FindName('Curvas', 0).PlotWeight = size/400
+    model.Layers.AddLayer('Curvas', crv_color)
+    model.Layers.FindName('Curvas', 0).PlotColor = crv_color
+    model.Layers.FindName('Curvas', 0).PlotWeight = size/200
 
     # Cria as dimensões básicas para a geração da arte
     margin = size * 0.05
@@ -207,7 +214,7 @@ def draw_geometry(date, loc, size, text, id):
     backfl.ChangeClosedCurveSeam(param_on_backfl)
 
     # Cria as curvas intermediárias entre as duas bases
-    tween = Curve.CreateTweenCurvesWithMatching(flower, backfl, 120)
+    tween = Curve.CreateTweenCurvesWithMatching(flower, backfl, blend)
 
     # Agrupa as geometrias para alinhamento com o quadro
     model.Groups.Add(r3dm.Group())
