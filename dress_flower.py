@@ -7,7 +7,7 @@
 import json
 import sys
 
-from os import getcwd, startfile
+from os import getcwd
 from geolocation import coordinates
 from colors import color_table
 from geometry import draw_geometry
@@ -49,7 +49,8 @@ def load_input(file):
     except:
         city = geodata.raw['address']['town']
     state = geodata.raw['address']['state']
-    text = city + ", " + state + " - " + input['data']
+    text = city.lower() + " · " + state.lower() + \
+           " · " + input['data'].replace('/', ' · ')
 
     # Avalia se o valor de entrada para o tamanho da arte está correto
     if type(input['dimensões']) != int:
@@ -99,8 +100,7 @@ def main():
 
     # Exporta a arte em JPEG e em PDF
     pdf = export_pdf(input[2], flower, art_id)
-    thumbnail = export_jpeg(input[2], 0, flower, art_id)
-    zoom = export_jpeg(input[2], 1, flower, art_id)
+    jpeg = export_jpeg(input[2], flower, art_id)
 
 if __name__ == '__main__':
     main()

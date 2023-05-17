@@ -147,14 +147,20 @@ def draw_geometry(date, loc, size, text, color, id):
     # Cria o arquivo 3DM em que serão feitas as operações
     model = r3dm.File3dm()
     model.Settings.ModelUnitSystem = r3dm.UnitSystem.Centimeters
+
+    # Cria as layers base da arte
     model.Layers.AddLayer('Arte', (0, 0, 0, 255))
     model.Layers.AddLayer('Texto', (210, 210, 210, 255))
-    model.Layers.AddLayer('Frame', (255, 255, 255, 255))
     model.Layers.AddLayer('Curvas', crv_color)
     model.Layers.FindName('Curvas', 0).PlotColor = crv_color
     model.Layers.FindName('Curvas', 0).PlotWeight = size/200
 
+    # Cria as layers base de visualização
+    model.Layers.AddLayer('ViewFrame', (255, 255, 255, 255))
+    model.Layers.AddLayer('PrintFrame', (255, 255, 255, 255))
+
     # Cria as dimensões básicas para a geração da arte
+    bleed = 5.0
     margin = size * 0.05
     radius = (size/2) - margin
     arc = 360/8
@@ -171,8 +177,12 @@ def draw_geometry(date, loc, size, text, color, id):
         ]
 
     # Calcula o valor de distância do centro para cada ponto da arte
-    fac = [0.45, 0.85]
-    scale = [(Remap(date[x], [0, 9], fac) * radius) for x in range(len(date))]
+    bounds = [min(date), max(date)]
+    if bounds[0] == 0 and bounds[1] == 9:
+        fac = [0.45, 0.85]
+    else:
+        fac = [0.65, 0.85]
+    scale = [(Remap(date[x], bounds, fac) * radius) for x in range(len(date))]
 
     # Cria os pontos da arte baseado nas suas coordenadas polares
     points = [PointPolar(scale[x], angle[x]) for x in range(len(date))]
@@ -205,7 +215,7 @@ def draw_geometry(date, loc, size, text, color, id):
     flower.Transform(move_up)
 
     # Ajusta o ponto de início da curva superior
-    param_on_flower = 0.15
+    param_on_flower = 0.25
     flower.ChangeClosedCurveSeam(param_on_flower)
 
     # Ajusta o ponto de início da curva inferior
@@ -237,7 +247,7 @@ def draw_geometry(date, loc, size, text, color, id):
     
     # Adiciona as curvas de sobreposição ao modelo
     satt = r3dm.ObjectAttributes()
-    satt.LayerIndex = 3
+    satt.LayerIndex = 2
     for curve in project:
         model.Objects.AddCurve(curve, satt)
 
@@ -258,15 +268,22 @@ def draw_geometry(date, loc, size, text, color, id):
     # Cria o texto da arte de acordo com os textos recebidos
     pln_txt = r3dm.Plane(r3dm.Point3d((-size/2) + margin/2, 
                                       (-size/2) + margin/2, 0), Z_AXIS)
-    crv_txt = Curve.CreateTextOutlines(text, 'Founders Grotesk Light', 0.3, 
-                                       0, True, pln_txt, 1.0, 0.01)
+    crv_txt = Curve.CreateTextOutlines(text, 'Inter Light', 
+                                       0.3, 0, True, pln_txt, 1.0, 0.01)
 
     # Cria a moldura da arte de acordo com as dimensões recebidas
     f1 = r3dm.Point3d(size/2, size/2, 0.0)
     f2 = r3dm.Point3d(-size/2, size/2, 0.0)
     f3 = r3dm.Point3d(-size/2, -size/2, 0.0)
     f4 = r3dm.Point3d(size/2, -size/2, 0.0)
-    frame = r3dm.Polyline([f1, f2, f3, f4, f1])
+    view_frame = r3dm.Polyline([f1, f2, f3, f4, f1])
+
+    # Cria a moldura de impressão de acordo com as dimensões recebidas
+    f1 = r3dm.Point3d(bleed + size/2, bleed + size/2, 0.0)
+    f2 = r3dm.Point3d(-bleed - size/2, bleed + size/2, 0.0)
+    f3 = r3dm.Point3d(-bleed - size/2, -bleed - size/2, 0.0)
+    f4 = r3dm.Point3d(bleed + size/2, -bleed - size/2, 0.0)
+    print_frame = r3dm.Polyline([f1, f2, f3, f4, f1])
 
     # Adiciona as curvas de texto ao modelo
     tatt = r3dm.ObjectAttributes()
@@ -274,10 +291,15 @@ def draw_geometry(date, loc, size, text, color, id):
     for curve in crv_txt:
         model.Objects.AddCurve(curve, tatt)
     
-    # Adiciona a curva do frame ao modelo
+    # Adiciona a curva do frame da arte ao modelo
     fatt = r3dm.ObjectAttributes()
-    fatt.LayerIndex = 2
-    model.Objects.AddCurve(frame.ToNurbsCurve(), fatt)
+    fatt.LayerIndex = 3
+    model.Objects.AddCurve(view_frame.ToNurbsCurve(), fatt)
+
+    # Adiciona a curva do frame da impressão ao modelo
+    patt = r3dm.ObjectAttributes()
+    patt.LayerIndex = 4
+    model.Objects.AddCurve(print_frame.ToNurbsCurve(), patt)
 
     # Salva o arquivo 3DM após todas as operações serem finalizadas
     filename = getcwd() + "\\3DM\\" + id + '.3dm'

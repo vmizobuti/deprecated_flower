@@ -76,7 +76,7 @@ def paint(filename, colors):
                 stop = gradient[i]
                 color = Color.FromArgb(255, stop[0], stop[1], stop[2])
                 att = Rhino.DocObjects.ObjectAttributes()
-                att.LayerIndex = 4
+                att.LayerIndex = 0
                 att.ColorSource = Rhino.DocObjects.ObjectColorSource(1)
                 att.PlotColorSource = Rhino.DocObjects.ObjectPlotColorSource(1)
                 att.PlotColor = color
@@ -119,13 +119,16 @@ def paint(filename, colors):
 
     return filename
 
-def export_jpeg(size, res, filename, id):
+def export_jpeg(size, filename, id):
     """
     Exporta o modelo 3DM em dois possíveis arquivos JPEG para visualização, um
     em baixa resolução (thumbnail) e outro em alta resolução (zoom).
     """
     # Abre o arquivo do Rhino conforme nome fornecido
     doc = Rhino.RhinoDoc.Open(filename)[0]
+
+    # Desliga as camadas que não vão ser utilizadas
+    doc.Layers[4].IsVisible = False
 
     # Configura a viewport ativa para a vista superior
     viewport = Rhino.Display.RhinoViewport()
@@ -139,22 +142,16 @@ def export_jpeg(size, res, filename, id):
     # Define as configurações de saída do JPEG
     view = doc.Views.ActiveView
     dpi = 72
-    if res == 0:
-        frame = System.Drawing.Size(600, 600)
-    elif res == 1:
-        frame = System.Drawing.Size(3200, 3200)
+    frame = System.Drawing.Size(3200, 3200)
     settings = Rhino.Display.ViewCaptureSettings(view, frame, dpi)
-    settings.RasterMode = False
+    #settings.RasterMode = True
     settings.ViewArea = Rhino.Display.ViewCaptureSettings.ViewAreaMapping(1)
-
-    # Cria a captura da página especificada
-    bitmap = Rhino.Display.ViewCapture.CaptureToBitmap(settings)
     
     # Salva o arquivo bitmap de saída
-    if res == 0:
-        savepath = getcwd() + "\\JPEG\\" + id + "_LQ.jpeg"
-    elif res == 1:
-        savepath = getcwd() + "\\JPEG\\" + id + "_HQ.jpeg"
+    savepath = getcwd() + "\\JPEG\\" + id + "_HQ.jpeg"
+    
+    # Cria a captura da página especificada
+    bitmap = Rhino.Display.ViewCapture.CaptureToBitmap(settings)
     bitmap.Save(savepath, System.Drawing.Imaging.ImageFormat.Jpeg)
 
     # Fecha o documento após finalizar o seu uso
