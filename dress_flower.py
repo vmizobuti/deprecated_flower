@@ -68,21 +68,21 @@ def load_input(file):
 
     return date, loc, size, text, color
 
-def main():
+def make_flower(id):
     
     # Formata o nome do arquivo JSON de entrada, e retorna um aviso caso um 
     # arquivo não tenha sido encontrado ou a ID não tenha sido fornecida
-    if len(sys.argv) != 2:
-        raise ValueError('Insira o ID da arte.')
+    # if len(sys.argv) != 2:
+    #     raise ValueError('Insira o ID da arte.')
     try:
-        filename = getcwd() + "/JSON/" + sys.argv[1] + '.json'
+        filename = getcwd() + "\\JSON\\" + id + '.json'
         file = open(filename, encoding='utf-8')
     except:
         raise ValueError('Não foi encontrado arquivo JSON com o ID fornecido.')
 
     # Carrega os valores de entrada à partir de um arquivo JSON
     input = load_input(file)
-    art_id = str(sys.argv[1])
+    art_id = str(id)
 
     # Define as cores para serem utilizadas na arte de acordo com
     # a tabela de cores pré-definidas, bem como a quantidade de 
@@ -101,6 +101,3 @@ def main():
     # Exporta a arte em JPEG e em PDF
     pdf = export_pdf(input[2], flower, art_id)
     jpeg = export_jpeg(input[2], flower, art_id)
-
-if __name__ == '__main__':
-    main()

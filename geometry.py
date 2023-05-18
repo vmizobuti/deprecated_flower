@@ -181,7 +181,7 @@ def draw_geometry(date, loc, size, text, color, id):
     if bounds[0] == 0 and bounds[1] == 9:
         fac = [0.45, 0.85]
     else:
-        fac = [0.65, 0.85]
+        fac = [0.60, 0.80]
     scale = [(Remap(date[x], bounds, fac) * radius) for x in range(len(date))]
 
     # Cria os pontos da arte baseado nas suas coordenadas polares
@@ -268,7 +268,7 @@ def draw_geometry(date, loc, size, text, color, id):
     # Cria o texto da arte de acordo com os textos recebidos
     pln_txt = r3dm.Plane(r3dm.Point3d((-size/2) + margin/2, 
                                       (-size/2) + margin/2, 0), Z_AXIS)
-    crv_txt = Curve.CreateTextOutlines(text, 'Inter Light', 
+    crv_txt = Curve.CreateTextOutlines(text, 'Arial', 
                                        0.3, 0, True, pln_txt, 1.0, 0.01)
 
     # Cria a moldura da arte de acordo com as dimensões recebidas
